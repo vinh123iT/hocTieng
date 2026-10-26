@@ -1,0 +1,9 @@
+{
+	"appId": "com.pinkvocab.app",
+	"appName": "PinkVocab",
+	"webDir": "www",
+	"backgroundColor": "#FFF7FA",
+	"android": {
+		"allowMixedContent": false
+	}
+}

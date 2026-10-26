@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#F8BBD0" />
+    <title>PinkVocab – Học từ vựng tiếng Anh</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23F8BBD0'/%3E%3Cpath d='M32 46s-14-8.6-14-19a8 8 0 0 1 14-5 8 8 0 0 1 14 5c0 10.4-14 19-14 19z' fill='%23EC8FB0'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="Content/fonts.css" />
+    <link rel="stylesheet" href="Content/site.css" />
+</head>
+<body>
+    <div class="backdrop-deco" aria-hidden="true"></div>
+
+    <div id="app" class="app" role="main">
+        <noscript>
+            <p class="noscript">PinkVocab cần bật JavaScript để hoạt động.</p>
+        </noscript>
+    </div>
+
+    <div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
+    <div id="modal-root"></div>
+    <div id="music-root"></div>
+
+    <script>
+        // Bản đóng gói thành ứng dụng: không có máy chủ, dữ liệu lưu ngay trên thiết bị.
+        window.PINKVOCAB = { offline: true, app: true };
+    </script>
+    <script src="Scripts/engine.js"></script>
+    <script src="Scripts/store.js"></script>
+    <script src="Scripts/audio.js"></script>
+    <script src="Scripts/ui.js"></script>
+    <script src="Scripts/editor.js"></script>
+    <script src="Scripts/study.js"></script>
+    <script src="Scripts/music.js"></script>
+    <script src="Scripts/app.js"></script>
+</body>
+</html>
