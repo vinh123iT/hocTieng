@@ -41,7 +41,7 @@ var StudyView = (function () {
 
         var root = h('section', { class: 'page study-page' });
         var advanceTimer = null;
-        var phase = 'ask';            // ask | wrong | correct | revealed
+        var phase = 'ask';            // ask | wrong | correct | revealed | retyped
         var lastActionAt = 0;
         var ui = {};                  // tham chiếu tới các phần tử của câu hỏi hiện tại
         var cardById = {};
@@ -286,13 +286,14 @@ var StudyView = (function () {
             ui.answer.disabled = true;
             ui.submit.disabled = true;
             ui.unknownBtn.disabled = true;
-        }
-
-        function handleSubmit(card, expected) {
-            if (phase === 'correct' || phase === 'revealed') {
+                                                  }
+                function handleSubmit(card, expected) {
+            if (phase === 'correct') {
                 if (Date.now() - lastActionAt > 400) { next(); }   // chống nhấn Enter đúp làm bỏ qua phản hồi
                 return;
             }
+            if (phase === 'retyped') { return; }                   // đang chuyển sang từ mới
+            if (phase === 'revealed') { handleRetype(card, expected); return; }
             var res = Engine.checkAnswer(ui.answer.value, expected);
             if (res.status === 'empty') {
                 setFeedback('warn', 'Hãy nhập đáp án của bạn, hoặc nhấn "Không biết".');
@@ -328,30 +329,16 @@ var StudyView = (function () {
 
         function onWrong(card, expected) {
             var settings = st();
-            phase = 'wrong';
-            lastActionAt = Date.now();
-            Engine.answerWrong(set.session, settings.deepMemory);
-            card.learned = false;
-            set.lastStudiedAt = lastActionAt;
-            Store.save();
-
             if (settings.soundWrong) { Sfx.error(); }
             ui.card.classList.remove('is-shake');
             void ui.card.offsetWidth;
             ui.card.classList.add('is-shake');
-            var retry = h('button', {
-                type: 'button', class: 'btn btn-ghost btn-small', text: 'Thử lại',
-                onclick: function () { ui.answer.focus(); ui.answer.select(); }
-            });
-            var show = h('button', { type: 'button', class: 'btn btn-soft btn-small', text: 'Xem đáp án', onclick: function () { giveUp('show'); } });
-            setFeedback('warn', 'Chưa chính xác, hãy thử lại nhé!', { buttons: [retry, show] });
-            ui.answer.focus();
-            ui.answer.select();
+            giveUp('unknown');   // trả lời sai: hiện đáp án luôn, phải nhập lại đúng mới sang từ mới
         }
 
         /** kind = 'unknown' (nút "Không biết") hoặc 'show' (xem đáp án sau khi trả lời sai). */
         function giveUp(kind) {
-            if (phase === 'correct' || phase === 'revealed') { return; }
+            if (phase === 'correct' || phase === 'revealed' || phase === 'retyped') { return; }
             var settings = st();
             var info = ui.current;
             var card = info.card;
@@ -363,16 +350,54 @@ var StudyView = (function () {
             set.lastStudiedAt = lastActionAt;
             Store.save();
 
-            lockInput();
+            ui.revealKind = kind;
+            ui.unknownBtn.disabled = true;                         // vẫn cho nhập lại đáp án, chỉ khóa nút "Không biết"
             if (ui.reveal && ui.reveal.parentNode) { ui.reveal.click(); }
-            setFeedback('info', kind === 'unknown' ? 'Không sao, mình sẽ cho từ này quay lại sau nhé.' : 'Đây là đáp án của từ này.', {
-                answer: info.expected,
-                note: kind === 'unknown' ? 'Từ này đã được đánh dấu cần ôn tập thêm.' : null,
-                buttons: [continueButton()]
-            });
-            var continueBtn = ui.feedback.querySelector('button');
-            if (continueBtn) { continueBtn.focus(); }
+            showRevealed(false);
+            ui.answer.value = '';
+            ui.answer.placeholder = 'Nhập lại đáp án để tiếp tục';
+            ui.answer.focus();
             if (!settings.termFirst && settings.speak) { speakEnglish(card.term); }
+        }
+
+        /** Hiện đáp án (không có nút "Tiếp tục"). retry = true khi người học vừa nhập lại sai. */
+        function showRevealed(retry) {
+            var unknown = ui.revealKind === 'unknown';
+            var message = retry
+                ? 'Chưa chính xác, hãy nhập lại đáp án bên dưới nhé!'
+                : (unknown ? 'Không sao, mình sẽ cho từ này quay lại sau nhé.' : 'Đây là đáp án của từ này.');
+            setFeedback(retry ? 'warn' : 'info', message, {
+                answer: ui.current.expected,
+                note: unknown ? 'Từ này đã được đánh dấu cần ôn tập thêm. Nhập lại đúng đáp án để sang từ mới.' : 'Nhập lại đúng đáp án để sang từ mới.'
+            });
+        }
+
+        /** Sau khi xem đáp án: phải nhập lại ĐÚNG mới sang từ mới (không tính thêm điểm). */
+        function handleRetype(card, expected) {
+            var res = Engine.checkAnswer(ui.answer.value, expected);
+            if (res.status === 'empty') {
+                showRevealed(true);
+                ui.answer.focus();
+                return;
+            }
+            if (res.status === 'correct') {
+                var settings = st();
+                phase = 'retyped';
+                lockInput();
+                if (settings.soundCorrect) { Sfx.success(); }
+                ui.card.classList.add('is-correct');
+                burst();
+                setFeedback('success', 'Chính xác! Sang từ tiếp theo nào!', { answer: expected });
+                advanceTimer = setTimeout(next, 900);
+                return;
+            }
+            if (st().soundWrong) { Sfx.error(); }
+            ui.card.classList.remove('is-shake');
+            void ui.card.offsetWidth;
+            ui.card.classList.add('is-shake');
+            showRevealed(true);
+            ui.answer.focus();
+            ui.answer.select();
         }
 
         function next() {
@@ -575,7 +600,7 @@ var StudyView = (function () {
                     return;
                 }
                 if (set.session && !set.session.finished) { Engine.applyDeep(set.session, s.deepMemory); Store.save(); }
-                if (set.session && !set.session.finished && phase !== 'correct' && phase !== 'revealed') {
+                if (set.session && !set.session.finished && phase !== 'correct' && phase !== 'revealed' && phase !== 'retyped') {
                     ui.stage.textContent = '';
                     showQuestion(keep);
                 } else if (!set.session || set.session.finished) {
@@ -611,3 +636,5 @@ var StudyView = (function () {
 
     return { create: create };
 }());
+    
+                      
